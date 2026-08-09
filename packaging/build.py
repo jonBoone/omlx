@@ -130,8 +130,10 @@ def _resolve_mlx_version(toml_path: Path) -> str:
 
 
 def swap_platform_wheels(
-    export_dir: Path, macos_target: str, python_version: str = "3.11"
+    export_dir: Path, macos_target: str, python_version: str = None
 ):
+    if python_version is None:
+        python_version = _get_target_python_version()
     """Replace mlx and mlx-metal in exported venvstacks with platform-specific wheels.
 
     Downloads the wheels for the given macOS target (e.g. "26.0") and replaces
@@ -224,20 +226,32 @@ def _wheel_pkg_name(whl_path: Path) -> str:
 
 
 
+def _get_target_python_version() -> str:
+    """Read the Python minor version from venvstacks.toml (e.g. "3.13")."""
+    toml_path = SCRIPT_DIR / "venvstacks.toml"
+    content = toml_path.read_text()
+    match = re.search(r'python_implementation\s*=\s*"cpython@(\d+\.\d+)"', content)
+    if not match:
+        raise RuntimeError(
+            f"Cannot find python_implementation = \"cpython@X.Y\" in {toml_path}"
+        )
+    return match.group(1)  # e.g. "3.13"
+
+
+def _fw_site_packages(export_dir: Path) -> Path:
+    """Return the framework layer's site-packages path for the target Python version."""
+    pv = _get_target_python_version()  # e.g. "3.13"
+    return export_dir / "framework-mlx-base" / "lib" / f"python{pv}" / "site-packages"
+
+
 def _find_target_python() -> str:
     """Find a Python interpreter matching the venvstacks target version.
 
     Sdist-only packages may compile C extensions, so the wheel must be built
-    with the same Python version that venvstacks targets (e.g. 3.11).
+    with the same Python version that venvstacks targets (e.g. 3.13).
     Falls back to sys.executable if no matching version is found.
     """
-    toml_path = SCRIPT_DIR / "venvstacks.toml"
-    content = toml_path.read_text()
-    match = re.search(r'python_implementation\s*=\s*"cpython@(\d+\.\d+)', content)
-    if not match:
-        return sys.executable
-
-    target_minor = match.group(1)  # e.g. "3.11"
+    target_minor = _get_target_python_version()
     candidates = [
         shutil.which(f"python{target_minor}"),
         str(BUILD_DIR / f"cpython-{target_minor}" / "bin" / f"python{target_minor}"),
@@ -436,7 +450,7 @@ def _write_engine_commits(omlx_pkg_dir: Path):
 # requirements feed into it. Entries:
 #   "project" → [project] dependencies (PEP 621)
 #   "<extra>" → [project.optional-dependencies].<extra>
-# Layers not listed here are left empty (e.g. cpython-3.11 has no deps).
+# Layers not listed here are left empty (e.g. cpython-3.13 has no deps).
 # When Jun's release path reintroduces a Python menubar application
 # layer, add an entry like {"omlx-app": ["menubar"]} alongside.
 # Later sources override earlier ones on a name collision (PEP 503
@@ -604,10 +618,10 @@ def _venvstacks_driver() -> list[str]:
       4. `venvstacks` on PATH as a last resort.
 
     Why -m first: the PATH-installed `venvstacks` script's shebang may
-    point at a dotted interpreter like `.../python3.11`. venvstacks 0.7
+    point at a dotted interpreter like `.../python3.13`. venvstacks 0.7
     computes `Path(sys.executable).suffix` to derive the runtime binary
-    extension; on `python3.11` that returns ".11", producing a bogus
-    `bin/python.11` path and breaking `pip --python`. Running via the
+    extension; on `python3.13` that returns ".13", producing a bogus
+    `bin/python.13` path and breaking `pip --python`. Running via the
     current interpreter (typically `.../python3`, suffix "") sidesteps
     the bug. See https://github.com/lmstudio-ai/venvstacks/issues/ for
     the upstream report.
@@ -750,13 +764,7 @@ def _install_mlx_audio(export_dir: Path):
     ])
 
     # Install into framework site-packages
-    fw_site = (
-        export_dir
-        / "framework-mlx-base"
-        / "lib"
-        / "python3.11"
-        / "site-packages"
-    )
+    fw_site = _fw_site_packages(export_dir)
     if not fw_site.exists():
         print(f"  ✗ site-packages not found: {fw_site}")
         return
@@ -789,13 +797,7 @@ def _install_paroquant(export_dir: Path):
         f"paroquant=={_PAROQUANT_VERSION}",
     ])
 
-    fw_site = (
-        export_dir
-        / "framework-mlx-base"
-        / "lib"
-        / "python3.11"
-        / "site-packages"
-    )
+    fw_site = _fw_site_packages(export_dir)
     if not fw_site.exists():
         print(f"  ✗ site-packages not found: {fw_site}")
         return
@@ -839,13 +841,7 @@ def _install_xgrammar(export_dir: Path):
     isn't enough — an interruption between the two extracts would otherwise
     leave a half-installed state the next run accepts.
     """
-    fw_site = (
-        export_dir
-        / "framework-mlx-base"
-        / "lib"
-        / "python3.11"
-        / "site-packages"
-    )
+    fw_site = _fw_site_packages(export_dir)
     sentinel = fw_site / (
         f"_omlx_xgrammar_{_XGRAMMAR_VERSION}_tvmffi_{_TVM_FFI_VERSION}.installed"
     )
@@ -863,7 +859,7 @@ def _install_xgrammar(export_dir: Path):
     run_cmd([
         sys.executable, "-m", "pip", "download",
         "--no-deps", "--dest", str(xgr_wheels),
-        "--python-version", "3.11",
+        "--python-version", _get_target_python_version(),
         "--platform", "macosx_11_0_arm64",
         "--only-binary=:all:",
         f"xgrammar=={_XGRAMMAR_VERSION}",
@@ -930,13 +926,7 @@ def _install_spacy_model(export_dir: Path):
     import urllib.request
     import zipfile
 
-    fw_site = (
-        export_dir
-        / "framework-mlx-base"
-        / "lib"
-        / "python3.11"
-        / "site-packages"
-    )
+    fw_site = _fw_site_packages(export_dir)
     if not fw_site.exists():
         print(f"  ✗ site-packages not found: {fw_site}")
         return
@@ -980,13 +970,7 @@ _STRIP_DIST_PREFIXES = [
 
 def _strip_unused_packages(export_dir: Path):
     """Remove large packages not needed for inference from exported framework."""
-    fw_site = (
-        export_dir
-        / "framework-mlx-base"
-        / "lib"
-        / "python3.11"
-        / "site-packages"
-    )
+    fw_site = _fw_site_packages(export_dir)
     if not fw_site.exists():
         return
 

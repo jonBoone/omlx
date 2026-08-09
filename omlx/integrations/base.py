@@ -79,7 +79,7 @@ class Integration:
     def _scrubbed_env(self) -> dict[str, str]:
         """Return an os.environ copy with bundled-Python vars removed.
 
-        oMLX.app sets PYTHONHOME/PYTHONPATH to its bundled cpython-3.11.
+        oMLX.app sets PYTHONHOME/PYTHONPATH to its bundled cpython-3.13.
         Launched tools spawn their own Python subprocesses; if they inherit
         these they crash with init_fs_encoding errors.
         """

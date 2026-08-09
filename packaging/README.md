@@ -50,10 +50,33 @@ packaging/
 
 | Layer | Contents |
 |-------|----------|
-| Runtime (`cpython-3.11`) | Python 3.11 |
+| Runtime (`cpython-3.13`) | Python 3.13 |
 | Framework (`mlx-base`) | MLX, mlx-lm, mlx-vlm, FastAPI, transformers, mlx-audio, paroquant, spaCy |
 
 No application layer — the Swift app is the application surface.
+
+## Changing the Bundled Python Version
+
+The bundled Python version is declared in a single place:
+`packaging/venvstacks.toml` `[[runtimes]]` block:
+
+```toml
+[[runtimes]]
+name = "cpython-3.13"
+python_implementation = "cpython@3.13"
+```
+
+The build pipeline (`build.py`, `build.sh`, and the CLI wrapper test)
+dynamically parses `cpython@X.Y` from this file, so changing it here
+propagates to all derived paths.
+
+**When bumping the version, also update:**
+
+1. **`Formula/omlx.rb`** — `depends_on "python@X.Y"` and `system "pythonX.Y"`
+2. **`pyproject.toml`** — if the minimum supported version changes,
+   update `requires-python` and the classifiers
+3. **`packaging/venvstacks.toml`** — ensure `name` matches
+   `cpython-{version}` (used as the layer directory name)
 
 ## Installation
 

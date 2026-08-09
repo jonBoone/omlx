@@ -18,7 +18,7 @@ cd omlx
 pip install -e ".[dev]"
 ```
 
-> **Note**: oMLX requires Apple Silicon (M1/M2/M3/M4) and Python 3.10+.
+> **Note**: oMLX requires Apple Silicon (M1/M2/M3/M4) and Python 3.11–3.13.
 
 ## Development Workflow
 
@@ -47,6 +47,37 @@ pytest -m slow
 **Test file naming:** For a source file `omlx/<module>.py`, the test file should be `tests/test_<module>.py`.
 
 When modifying source code, always check if existing tests are affected and update them accordingly. New code should include corresponding tests.
+
+### Code Style
+
+```bash
+# Lint
+ruff check .
+
+# Format
+black .
+
+# Type check
+mypy .
+```
+
+The project uses `ruff` for linting, `black` for formatting (line-length 88), and `mypy` for type checking. All three are included in the dev dependencies (`pip install -e ".[dev]"`).
+
+### macOS App
+
+The native SwiftUI menubar app lives at `apps/omlx-mac/`. It embeds venvstacks Python layers produced by `packaging/build.py`.
+
+```bash
+# Re-export venvstacks layers (cold: ~10-20 min, warm: ~4 min)
+python packaging/build.py --venvstacks-only
+
+# Build the full .app
+apps/omlx-mac/Scripts/build.sh release
+```
+
+The bundled Python version is declared in `packaging/venvstacks.toml` (`python_implementation = "cpython@X.Y"`). See `packaging/README.md` for layer configuration and how to change the version.
+
+Requires Xcode and Apple Silicon.
 
 ### License Header
 

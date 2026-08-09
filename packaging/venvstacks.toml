@@ -11,8 +11,8 @@
 # so the venvstacks export only ships a runtime + framework layer.
 
 [[runtimes]]
-name = "cpython-3.11"
-python_implementation = "cpython@3.11.10"
+name = "cpython-3.13"
+python_implementation = "cpython@3.13"
 requirements = []
 platforms = [
     "macosx_arm64",
@@ -20,7 +20,7 @@ platforms = [
 
 [[frameworks]]
 name = "mlx-base"
-runtime = "cpython-3.11"
+runtime = "cpython-3.13"
 # Populated by _generate_venvstacks_toml() — do not hand-edit.
 requirements = []
 platforms = [

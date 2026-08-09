@@ -15,7 +15,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
-  <img src="https://img.shields.io/badge/python-3.10+-green" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/python-3.11--3.13-green" alt="Python 3.11-3.13">
   <img src="https://img.shields.io/badge/platform-Apple%20Silicon-black?logo=apple" alt="Apple Silicon">
 </p>
 
@@ -90,7 +90,7 @@ pip install -e ".[mcp]"   # MCP（Model Context Protocol）サポート付き
 OMLX_WITH_CUSTOM_KERNEL=1 pip install -e .
 ```
 
-Python 3.10+とApple Silicon（M1/M2/M3/M4）が必要です。
+Python 3.11–3.13 と Apple Silicon（M1/M2/M3/M4）が必要です。
 
 ## クイックスタート
 

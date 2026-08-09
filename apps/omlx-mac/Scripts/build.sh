@@ -175,7 +175,7 @@ _app_python_layers_path() {
         "$app/Contents/Python" \
         "$app/Contents/Frameworks"
     do
-        if [ -d "$candidate/cpython-3.11" ] && [ -d "$candidate/framework-mlx-base" ]; then
+        if [ -d "$candidate/cpython-$PYTHON_VERSION" ] && [ -d "$candidate/framework-mlx-base" ]; then
             printf "%s\n" "$candidate"
             return 0
         fi
@@ -190,6 +190,13 @@ fi
 # --- Resolve donor: pick a layer source and (re)build via venvstacks if stale
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 || true)}"
+
+# Derive the target Python minor version from venvstacks.toml (e.g. "3.13").
+# Used throughout for path construction so the build follows the venvstacks
+# runtime declaration instead of a separately-maintained hardcoded string.
+PYTHON_VERSION="$(grep -oE 'cpython@[0-9]+\.[0-9]+' "$PACKAGING_DIR/venvstacks.toml" \
+    | head -1 | sed 's/cpython@//')"
+[ -n "$PYTHON_VERSION" ] || die "could not parse python_implementation from venvstacks.toml"
 
 # Returns 0 if the local _export/ exists and its stored fingerprint matches
 # the current pyproject/venvstacks/lockfile state.
@@ -218,7 +225,7 @@ _custom_kernel_deployment_target() {
 
 _custom_kernel_pythonpath() {
     [ -n "${DONOR_LAYERS:-}" ] || die "custom kernel build requires resolved donor layers."
-    local mlx_site="$DONOR_LAYERS/framework-mlx-base/lib/python3.11/site-packages"
+    local mlx_site="$DONOR_LAYERS/framework-mlx-base/lib/python$PYTHON_VERSION/site-packages"
     [ -d "$mlx_site" ] || die "donor missing framework MLX site-packages: $mlx_site"
     if [ -n "${PYTHONPATH:-}" ]; then
         printf "%s:%s\n" "$mlx_site" "$PYTHONPATH"
@@ -530,12 +537,12 @@ mkdir -p "$PYTHON_DIR" "$RESOURCES_DIR"
 
 resolve_donor_layers
 log "Using donor: $DONOR_SOURCE"
-[ -d "$DONOR_LAYERS/cpython-3.11" ] || die "Donor missing cpython-3.11 at $DONOR_LAYERS"
+[ -d "$DONOR_LAYERS/cpython-$PYTHON_VERSION" ] || die "Donor missing cpython-$PYTHON_VERSION at $DONOR_LAYERS"
 [ -d "$DONOR_LAYERS/framework-mlx-base" ] || die "Donor missing framework-mlx-base at $DONOR_LAYERS"
 
-log "Copying cpython-3.11 from donor…"
-ditto "$DONOR_LAYERS/cpython-3.11" "$PYTHON_DIR/cpython-3.11"
-ok "  + cpython-3.11"
+log "Copying cpython-$PYTHON_VERSION from donor…"
+ditto "$DONOR_LAYERS/cpython-$PYTHON_VERSION" "$PYTHON_DIR/cpython-$PYTHON_VERSION"
+ok "  + cpython-$PYTHON_VERSION"
 
 log "Copying framework-mlx-base from donor (~1 GB)…"
 ditto "$DONOR_LAYERS/framework-mlx-base" "$PYTHON_DIR/framework-mlx-base"
@@ -584,27 +591,27 @@ ok "  + _engine_commits.json"
 
 log "Writing app-bundle CLI wrapper..."
 CLI_WRAPPER="$STAGED_APP/Contents/MacOS/omlx-cli"
-cat > "$CLI_WRAPPER" <<'EOF'
+cat > "$CLI_WRAPPER" <<EOF
 #!/bin/sh
 set -eu
 
-REAL_PATH="$(realpath "$0")"
-APP_ROOT="$(CDPATH= cd -- "$(dirname -- "$REAL_PATH")/.." && pwd)"
-RESOURCES="$APP_ROOT/Resources"
-PYROOT="$RESOURCES/Python"
-CPYTHON="$PYROOT/cpython-3.11"
-PYTHON="$CPYTHON/bin/python3"
-MLX_SITE="$PYROOT/framework-mlx-base/lib/python3.11/site-packages"
+REAL_PATH="\$(realpath "\$0")"
+APP_ROOT="\$(CDPATH= cd -- "\$(dirname -- "\$REAL_PATH")/.." && pwd)"
+RESOURCES="\$APP_ROOT/Resources"
+PYROOT="\$RESOURCES/Python"
+CPYTHON="\$PYROOT/cpython-$PYTHON_VERSION"
+PYTHON="\$CPYTHON/bin/python3"
+MLX_SITE="\$PYROOT/framework-mlx-base/lib/python$PYTHON_VERSION/site-packages"
 
-export PYTHONHOME="$CPYTHON"
+export PYTHONHOME="\$CPYTHON"
 export PYTHONDONTWRITEBYTECODE=1
-if [ -n "${PYTHONPATH:-}" ]; then
-    export PYTHONPATH="$RESOURCES:$MLX_SITE:$PYTHONPATH"
+if [ -n "\${PYTHONPATH:-}" ]; then
+    export PYTHONPATH="\$RESOURCES:\$MLX_SITE:\$PYTHONPATH"
 else
-    export PYTHONPATH="$RESOURCES:$MLX_SITE"
+    export PYTHONPATH="\$RESOURCES:\$MLX_SITE"
 fi
 
-exec "$PYTHON" -m omlx.cli "$@"
+exec "\$PYTHON" -m omlx.cli "\$@"
 EOF
 chmod 755 "$CLI_WRAPPER"
 ok "  + omlx-cli"

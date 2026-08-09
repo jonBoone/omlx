@@ -9,12 +9,20 @@ from pathlib import Path
 def _extract_cli_wrapper_script() -> str:
     build_script = Path("apps/omlx-mac/Scripts/build.sh").read_text()
     match = re.search(
-        r"cat > \"\$CLI_WRAPPER\" <<'EOF'\n(?P<script>.*?)\nEOF",
+        r"cat > \"\$CLI_WRAPPER\" <<EOF\n(?P<script>.*?)\nEOF",
         build_script,
         re.DOTALL,
     )
     assert match is not None
     return match.group("script")
+
+
+def _get_target_python_version() -> str:
+    """Derive the target Python minor version from venvstacks.toml."""
+    venvstacks = Path("packaging/venvstacks.toml").read_text()
+    match = re.search(r"cpython@([0-9]+\.[0-9]+)", venvstacks)
+    assert match is not None, "could not parse python_implementation from venvstacks.toml"
+    return match.group(1)
 
 
 def _write_fake_python(path: Path) -> None:
@@ -30,14 +38,20 @@ def _write_fake_python(path: Path) -> None:
 
 def test_app_bundle_cli_wrapper_resolves_symlinked_invocation(tmp_path):
     """The bundle wrapper must resolve paths from the app, not the symlink."""
-    script = _extract_cli_wrapper_script()
+    pv = _get_target_python_version()
+
+    # The test reads build.sh's source (not the built output), so
+    # $PYTHON_VERSION is still a literal shell variable reference.
+    # Expand it to the actual version so the extracted script runs.
+    script = _extract_cli_wrapper_script().replace("$PYTHON_VERSION", pv)
+
     cli = tmp_path / "Applications/oMLX.app/Contents/MacOS/omlx-cli"
     cli.parent.mkdir(parents=True)
     cli.write_text(script)
     cli.chmod(0o755)
 
     app_root = tmp_path / "Applications/oMLX.app/Contents"
-    python = app_root / "Resources/Python/cpython-3.11/bin/python3"
+    python = app_root / f"Resources/Python/cpython-{pv}/bin/python3"
     _write_fake_python(python)
 
     symlink = tmp_path / "usr/local/bin/omlx"
@@ -62,10 +76,10 @@ def test_app_bundle_cli_wrapper_resolves_symlinked_invocation(tmp_path):
         check=True,
     )
 
-    expected_home = f"PYTHONHOME={app_root}/Resources/Python/cpython-3.11"
+    expected_home = f"PYTHONHOME={app_root}/Resources/Python/cpython-{pv}"
     expected_path = (
         f"PYTHONPATH={app_root}/Resources:"
-        f"{app_root}/Resources/Python/framework-mlx-base/lib/python3.11/site-packages"
+        f"{app_root}/Resources/Python/framework-mlx-base/lib/python{pv}/site-packages"
     )
     expected_args = "ARGS=-m omlx.cli --help"
 

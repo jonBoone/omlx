@@ -1409,7 +1409,7 @@ class TestClaudeCodeIntegration:
         assert env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] == "131072"
         assert env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] == "131072"
         # Bundled-python vars must be stripped so claude code subprocess hooks
-        # don't inherit our cpython-3.11 stack.
+        # don't inherit our cpython-3.13 stack.
         assert "PYTHONHOME" not in env
         assert "PYTHONPATH" not in env
         assert "PYTHONDONTWRITEBYTECODE" not in env
