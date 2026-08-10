@@ -227,13 +227,20 @@ def _wheel_pkg_name(whl_path: Path) -> str:
 
 
 def _get_target_python_version() -> str:
-    """Read the Python minor version from venvstacks.toml (e.g. "3.13")."""
+    """Read the Python minor version from venvstacks.toml (e.g. "3.13").
+
+    Handles both X.Y (""cpython@3.13"") and X.Y.Z (""cpython@3.13.9"")
+    formats in python_implementation, always returning X.Y.
+    """
     toml_path = SCRIPT_DIR / "venvstacks.toml"
     content = toml_path.read_text()
     match = re.search(r'python_implementation\s*=\s*"cpython@(\d+\.\d+)"', content)
     if not match:
+        # Try X.Y.Z format — extract just X.Y
+        match = re.search(r'python_implementation\s*=\s*"cpython@(\d+\.\d+)\.\d+"', content)
+    if not match:
         raise RuntimeError(
-            f"Cannot find python_implementation = \"cpython@X.Y\" in {toml_path}"
+            f"Cannot find python_implementation = \"cpython@X.Y\" or \"cpython@X.Y.Z\" in {toml_path}"
         )
     return match.group(1)  # e.g. "3.13"
 
@@ -313,12 +320,15 @@ def build_local_wheels(source_toml: Path | None = None):
         shutil.rmtree(WHEELS_DIR)
     WHEELS_DIR.mkdir(parents=True)
 
-    # Build wheels from git-pinned packages
+    # Build wheels from git-pinned packages using the target Python version
+    # so that packages with requires-python constraints (e.g. misaki <3.14)
+    # build successfully even when the host running build.py is newer.
+    target_python = _find_target_python()
     for full_req, git_url in git_reqs:
         pkg_name = full_req.split("@")[0].strip()
         print(f"  Building wheel for {pkg_name} ...")
         run_cmd([
-            sys.executable, "-m", "pip", "wheel",
+            target_python, "-m", "pip", "wheel",
             git_url,
             "--no-deps",
             "-w", str(WHEELS_DIR),

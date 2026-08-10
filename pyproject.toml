@@ -175,7 +175,7 @@ bundle = [
     "numba>=0.59.0",
     "pyloudnorm>=0.1.0",
     "sounddevice>=0.4.6",
-    "misaki>=0.9.4",
+    "misaki @ git+https://github.com/hexgrad/misaki@fba1236595f2d2bf21d414ba6e57d25256afada3",
     "num2words>=0.5.14",
     "spacy>=3.8.4",
     "phonemizer-fork>=3.3.2",
