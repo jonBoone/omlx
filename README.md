@@ -84,7 +84,9 @@ brew install omlx --HEAD --with-custom-kernel
 git clone https://github.com/jundot/omlx.git
 cd omlx
 pip install -e .          # Core only
-pip install -e ".[mcp]"   # With MCP (Model Context Protocol) support
+
+# Optional features — see "Optional Dependencies" below
+pip install -e ".[mcp]"   # MCP support
 
 # GLM-5.2 / MiniMax M3 / Qwen3.5 native custom kernels (strongly recommended
 # if you serve those families -- see note below)
@@ -92,6 +94,32 @@ OMLX_WITH_CUSTOM_KERNEL=1 pip install -e .
 ```
 
 Requires macOS 15.0+ (Sequoia), Python 3.11–3.13, and Apple Silicon (M1/M2/M3/M4).
+
+### Optional Dependencies
+
+oMLX supports optional features via installation extras:
+
+```bash
+pip install -e ".[mcp]"           # MCP (Model Context Protocol)
+pip install -e ".[grammar]"       # Grammar-constrained decoding
+pip install -e ".[paroquant]"     # ParoQuant model loader
+pip install -e ".[modelscope]"    # ModelScope Hub support
+```
+
+The `audio` extra (TTS, STT, Speech-to-Speech) requires `uv` instead of `pip` due to a transitive dependency conflict with `mlx-audio`:
+
+```bash
+pip install uv                    # If you don't have uv yet
+uv pip install -e ".[audio]"      # Audio (TTS, STT, Speech-to-Speech)
+```
+
+Multiple extras can be combined:
+
+```bash
+uv pip install -e ".[mcp,audio,paroquant,modelscope,grammar]"
+```
+
+> **Why `uv` for audio?** The `mlx-audio` package declares a strict `mlx-lm==0.31.1` dependency that conflicts with oMLX's git-pinned `mlx-lm` (v0.31.3). uv's resolver handles this via `override-dependencies` in `pyproject.toml`; pip cannot.
 
 > **Note on native custom kernels:** a plain `pip install -e .` does NOT build
 > them, and the affected model families then silently fall back to much slower
