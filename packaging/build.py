@@ -234,10 +234,10 @@ def _get_target_python_version() -> str:
     """
     toml_path = SCRIPT_DIR / "venvstacks.toml"
     content = toml_path.read_text()
-    match = re.search(r'python_implementation\s*=\s*"cpython@(\d+\.\d+)"', content)
-    if not match:
-        # Try X.Y.Z format — extract just X.Y
-        match = re.search(r'python_implementation\s*=\s*"cpython@(\d+\.\d+)\.\d+"', content)
+    match = re.search(
+        r'python_implementation\s*=\s*"cpython@(\d+\.\d+)(?:\.\d+)?"',
+        content
+    )
     if not match:
         raise RuntimeError(
             f"Cannot find python_implementation = \"cpython@X.Y\" or \"cpython@X.Y.Z\" in {toml_path}"
